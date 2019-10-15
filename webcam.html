@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Webcam</title>
+    <style>
+        body{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #camera{
+            box-shadow: 1px 2px 6px gray;
+            border-radius: 10px;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        table{
+            border: 1px solid black;
+            width: 1000px;
+        }
+        th, td{
+            text-align: center;
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+        .red{
+            color: red;
+        }
+
+    </style>
+</head>
+<body>
+<div class="video-wrap">
+    <video id="video" playsinline autoplay></video>
+</div>
+<div class="controller">
+    <button id="snap">Capture</button>
+</div>
+<!-- <canvas id="canvas" width="640" height="480"></canvas> -->
+<script>
+'use strict';
+const video = document.getElementById('video');
+const canvas = document.createElement('canvas')
+video.setAttribute("id", "camera")
+const snap = document.getElementById('snap');
+const errorMsgElement = document.getElementById('span#ErrorMsg');
+
+const constraints = {
+    audio: false,
+    video:{
+        width: 855, height: 500
+    }
+};
+async function init(){
+    try{
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        handleSuccess(stream);
+    }
+    catch(e){
+        errorMsgElement.innerHTML = `navigator.getUserMedia.error:${e.toString()}`;
+
+    }
+}
+function handleSuccess(stream){
+    window.stream = stream;
+    video.srcObject = stream;
+}
+init();
+var context = canvas.getContext('2d');
+snap.addEventListener("click",function(){
+    context.drawImage(video, 0, 0,canvas.width,canvas.height);
+    var image = canvas.toDataURL('image/jpeg', 1.0)
+    var total = 0
+
+    fetch('http://localhost:5000/identify',{
+        method: "POST",
+        body:JSON.stringify({image:image}),
+        headers: {
+            'Content-Type':'application/json'
+        }
+    })
+    .then((res)=>{
+        return res.json()
+    })
+    .then(data=>{
+        var items =  Object.keys(data)
+        var count = 1
+        for(var index in items){
+            var item = items[index]
+            var td_data = data[item]
+            if (td_data.total_number != 0){
+                var row_data = `<td>${count}</td><td>${td_data.id}</td><td>${item}</td><td>${td_data.total_number}</td><td>${td_data.rate}</td><td>${td_data.total_rate}</td>`
+                var row = document.createElement('tr')
+                row.innerHTML = row_data
+                var table = document.getElementById('products')
+                table.appendChild(row)
+                count += 1
+                total += td_data.total_rate
+            }
+        }
+
+        var row_data = `<td></td><td></td><td></td><td></td><td class="red">Total</td><td class="red">${total}</td>`
+        var row = document.createElement('tr')
+        row.innerHTML = row_data
+        var table = document.getElementById('products')
+        console.log(table)
+        table.appendChild(row)
+    })
+
+});
+</script>
+<table id= "products">
+    <tr>
+        <th>
+            S.NO
+        </th>
+        <th>
+            Product ID
+        </th>
+        <th>
+            Name of the Product
+        </th>
+        <th>
+            Quantity
+        </th>
+        <th>
+            Cost of the product
+        </th>
+        <th>
+            Final Cost of product
+        </th>
+    </tr>
+</table>
+</body>
+</html>
